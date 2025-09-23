@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Generator Ewidencji Czasu Pracy</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</head>
+<body>
+ <header class="main-header">
+        <h1>Generator Ewidencji Czasu Pracy Lekarza Stażysty</h1>
+    </header>
+
+    <div id="warning-message">
+        <strong>Uwaga!</strong> Przekroczono normę godzin dyżuru w miesiącu (40h 20').
+    </div>
+
+<div class="ui-container">
+    <h2>Wypełnij dane</h2>
+    <div class="controls-wrapper">
+        <div class="control-group">
+            <label for="imieNazwiskoInput">Imię i nazwisko stażysty:</label>
+            <input type="text" id="imieNazwiskoInput" oninput="aktualizujPodglad()" placeholder="np. Jan Kowalski">
+        </div>
+        <div class="control-group">
+            <label for="miesiacInput">Miesiąc i rok:</label>
+            <div class="month-selector">
+                <button id="prev-month-btn" onclick="zmienMiesiac(-1)">&lt;</button>
+                <input type="text" id="miesiacInput" oninput="aktualizujWszystko()" placeholder="np. Październik 2025">
+                <button id="next-month-btn" onclick="zmienMiesiac(1)">&gt;</button>
+            </div>
+        </div>
+        <div class="control-group">
+            <label>Wypełnij masowo kody pracy:</label>
+            <div class="fill-buttons-group">
+                <button class="fill-btn" data-code="1A">Wypełnij "1A"</button>
+                <button class="fill-btn" data-code="SZ">Wypełnij "SZ"</button>
+                <button class="fill-btn" data-code="UUT">Wypełnij "UUT"</button>
+            </div>
+        </div>
+        <div class="control-group">
+            <label>Zarządzanie danymi:</label>
+            <button id="clear-data-btn" class="btn-danger">Wyczyść wszystkie dane</button>
+        </div>
+    </div>
+
+    <details class="explanation-box">
+        <summary>Jak działają automatyzacje? (kliknij, aby rozwinąć)</summary>
+        <p>
+            Aplikacja posiada kilka funkcji, które przyspieszają wypełnianie ewidencji. <strong>Wszystkie automatycznie wstawione dane możesz później ręcznie edytować.</strong>
+        </p>
+        <ul>
+            <li><strong>Godziny pracy:</strong> Po wpisaniu kodu <strong>1A</strong> lub <strong>SZ</strong>, godziny pracy (<code>7:30-15:05</code>) oraz ich liczba (<code>7h 35'</code>) zostaną uzupełnione automatycznie.</li>
+            <li><strong>Godziny dyżuru:</strong> Po wpisaniu kodu dyżuru <strong>D</strong>, godziny oraz ich liczba zostaną wstawione automatycznie, w zależności od dnia tygodnia.</li>
+            <li><strong>Sumowanie godzin:</strong> Suma godzin dyżuru w wierszu <strong>Razem</strong> jest obliczana na bieżąco.</li>
+            <li><strong>Ostrzeżenie o limicie:</strong> Jeśli suma godzin dyżuru przekroczy <strong>40h 20'</strong>, na górze strony pojawi się czerwony komunikat.</li>
+            <li><strong>Weekendy:</strong> Soboty i niedziele są automatycznie oznaczane jako dni wolne (<code>W5</code> / <code>-</code>), a ich wiersze są zablokowane.</li>
+        </ul>
+    </details>
+
+    <div class="final-action-wrapper">
+        <button onclick="generujPDF()">Generuj PDF</button>
+        <div class="info-icon" data-tooltip="PDF zostanie wygenerowany na podstawie prawego podglądu.">i</div>
+    </div>
+</div>
+
+    <div class="tables-container">
+
+        <div class="table-wrapper">
+            <h2>Formularz do wypełnienia</h2>
+            <div id="formularz-edycji" class="szablon-base">
+                <div class="header-text">
+                    <span>ZATWIERDZAM<br>...............................<br>Data i podpis koordynatora</span>
+                    <span>Załącznik Nr 1</span>
+                </div>
+
+                <h1>EWIDENCJA CZASU PRACY LEKARZA STAŻYSTY</h1>
+                <p>ZA MIESIĄC: <span id="form-miesiacPodglad">.......................................................................</span></p>
+                <p><strong>Imię i nazwisko lekarza stażysty:</strong> <span id="form-imieNazwiskoPodglad">........................................................................</span></p>
+
+                <table class="ewidencja-table">
+                    <thead>
+                        <tr><th rowspan="2">Dzień mies.</th><th id="kod-pracy-placeholder"></th><th colspan="5">Godziny pracy</th><th></th><th></th><th></th></tr>
+                        <tr><th>KOD PRACY / NIEOBECNOŚCI</th><th>Praca godz. OD - DO</th><th>Ilość godzin</th><th>KOD DYŻURU</th><th>DYŻUR OD DO</th><th>Ilość godz. dyżuru</th><th>Ilość godzin nocnych</th><th>Ilość godzin nieob.</th><th>Ilość godzin nadliczbowych</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr id="form-day-row-1"><td>1</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="form-day-row-2"><td>2</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="form-day-row-3"><td>3</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="form-day-row-4"><td>4</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="form-day-row-5"><td>5</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="form-day-row-6"><td>6</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="form-day-row-7"><td>7</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="form-day-row-8"><td>8</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="form-day-row-9"><td>9</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="form-day-row-10"><td>10</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="form-day-row-11"><td>11</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="form-day-row-12"><td>12</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="form-day-row-13"><td>13</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="form-day-row-14"><td>14</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="form-day-row-15"><td>15</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="form-day-row-16"><td>16</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="form-day-row-17"><td>17</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="form-day-row-18"><td>18</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="form-day-row-19"><td>19</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="form-day-row-20"><td>20</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="form-day-row-21"><td>21</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="form-day-row-22"><td>22</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="form-day-row-23"><td>23</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="form-day-row-24"><td>24</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="form-day-row-25"><td>25</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="form-day-row-26"><td>26</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="form-day-row-27"><td>27</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="form-day-row-28"><td>28</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="form-day-row-29"><td>29</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="form-day-row-30"><td>30</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="form-day-row-31"><td>31</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                    </tbody>
+                    <tfoot><tr id="form-total-row"><td>Razem</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr></tfoot>
+                </table>
+            </div>
+        </div>
+
+        <div class="table-wrapper">
+            <h2>Podgląd wydruku</h2>
+            <div id="podglad-pdf" class="szablon-base">
+                <div class="header-text">
+                    <span>ZATWIERDZAM<br>...............................<br>Data i podpis koordynatora</span>
+                    <span>Załącznik Nr 1</span>
+                </div>
+
+                <h1>EWIDENCJA CZASU PRACY LEKARZA STAŻYSTY</h1>
+                <p>ZA MIESIĄC: <span id="preview-miesiacPodglad">.......................................................................</span></p>
+                <p><strong>Imię i nazwisko lekarza stażysty:</strong> <span id="preview-imieNazwiskoPodglad">........................................................................</span></p>
+                
+                <table class="ewidencja-table">
+                     <thead>
+                        <tr><th rowspan="2">Dzień mies.</th><th></th><th colspan="5">Godziny pracy</th><th></th><th></th><th></th></tr>
+                        <tr><th>KOD PRACY / NIEOBECNOŚCI</th><th>Praca godz. OD - DO</th><th>Ilość godzin</th><th>KOD DYŻURU</th><th>DYŻUR OD DO</th><th>Ilość godz. dyżuru</th><th>Ilość godzin nocnych</th><th>Ilość godzin nieob.</th><th>Ilość godzin nadliczbowych</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr id="preview-day-row-1"><td>1</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="preview-day-row-2"><td>2</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="preview-day-row-3"><td>3</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="preview-day-row-4"><td>4</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="preview-day-row-5"><td>5</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="preview-day-row-6"><td>6</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="preview-day-row-7"><td>7</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="preview-day-row-8"><td>8</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="preview-day-row-9"><td>9</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="preview-day-row-10"><td>10</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="preview-day-row-11"><td>11</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="preview-day-row-12"><td>12</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="preview-day-row-13"><td>13</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="preview-day-row-14"><td>14</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="preview-day-row-15"><td>15</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="preview-day-row-16"><td>16</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="preview-day-row-17"><td>17</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="preview-day-row-18"><td>18</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="preview-day-row-19"><td>19</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="preview-day-row-20"><td>20</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="preview-day-row-21"><td>21</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="preview-day-row-22"><td>22</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="preview-day-row-23"><td>23</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="preview-day-row-24"><td>24</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="preview-day-row-25"><td>25</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="preview-day-row-26"><td>26</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="preview-day-row-27"><td>27</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="preview-day-row-28"><td>28</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="preview-day-row-29"><td>29</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="preview-day-row-30"><td>30</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                        <tr id="preview-day-row-31"><td>31</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+                    </tbody>
+                    <tfoot><tr id="preview-total-row"><td>Razem</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr></tfoot>
+                </table>
+
+                <div class="footer-codes">
+                    <p><strong>KOD PRACY:</strong> <span class="code">1A</span> – 7:35 <span class="code">SZ</span> – staż cząstkowy zewnętrzny <span class="code">KOZ</span> – kursy/szkolenia obowiązkowe zewnętrzne</p>
+                    <p><strong>KOD DYŻURU:</strong> <span class="code">D</span> – dyżur</p>
+                    <p><strong>NIEOBECNOŚCI:</strong> <span class="code">UUT</span> – urlop wypoczynkowy, okolicznościowy, <span class="code">UM/UR</span> - urlop macierzyński/ rodzicielski, <span class="code">UW</span> – urlop wychow., <span class="code">ZL4</span> – zwolnienie lekarskie, <span class="code">UO</span> – ulop opiekuńczy, <span class="code">SW</span> – zwolnienie siła wyższa, <span class="code">WN</span> - wolne niepełnosprawni, <span class="code">NZD</span> – opieka nad zdrowym dzieckiem, <span class="code">ZP / ZN</span> – zwolnienie płatne / zwolnienie niepłatne, <span class="code">CW</span> – ćwiczenia wojskowe, <span class="code">OK</span> – oddanie krwi, <span class="code">IN</span> – inne nieobecności (wpisać jaka).</p>
+                    <p><span class="code">W5</span> – wolne w przeciętnie pięciodniowym tygodniu pracy</p>
+                    <p><span class="code">WZN</span> – wolne za niedzielę, <span class="code">WZŚ</span> - wolne za święto</p>
+                </div>
+                
+                <div class="signature-line">
+                    <p>...........................................................</p>
+                    <span>Data i podpis lekarza stażysty</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+    
+    <script src="script.js"></script>
+
+</body>
+</html>
