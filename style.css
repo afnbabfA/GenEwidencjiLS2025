@@ -12,6 +12,32 @@ body {
     background-color: #fff;
     border-radius: 8px;
     box-sizing: border-box;
+    /* Usunięto text-align: center; */
+}
+
+/* === STYLE DLA NOTATKI O PRYWATNOŚCI === */
+.privacy-notice {
+    background-color: #e6f7ff; /* Jasnoniebieskie tło */
+    border-left: 5px solid #007bff; /* Niebieska krawędź akcentująca */
+    padding: 15px 20px;
+    margin-bottom: 25px; /* Odstęp od kontrolek poniżej */
+    border-radius: 5px;
+    text-align: left; /* Wyrównanie do lewej dla lepszej czytelności */
+}
+
+.privacy-notice p {
+    margin: 0;
+    font-size: 14px;
+    color: #333;
+    line-height: 1.5;
+}
+
+.privacy-notice strong {
+    color: #0056b3; /* Ciemniejszy niebieski dla nagłówka */
+}
+
+
+.ui-container h2 {
     text-align: center;
 }
 
@@ -236,6 +262,7 @@ button:hover { background-color: #0056b3; }
     padding: 15px;
     margin-top: 20px;
     border-radius: 0 4px 4px 0;
+    text-align: left;
 }
 
 .explanation-box h4 {
